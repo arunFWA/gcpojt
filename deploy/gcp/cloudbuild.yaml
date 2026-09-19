@@ -1,0 +1,56 @@
+# Cloud Build pipeline for StoreOps.
+# Triggered on push to main (see deploy/gcp/README.md for trigger setup).
+# This pipeline is what "CI/CD relationship" in CLAUDE.md refers to: the
+# harness's own Evaluator checks (lint/typecheck/test/depcruise) run BEFORE
+# a PR merges; this pipeline re-runs the same automated checks as a second,
+# independent gate before anything reaches Cloud Run -- the harness
+# precedes CI, and CI is the enforcement backstop if a check regresses.
+
+steps:
+  - id: install
+    name: node:20-slim
+    entrypoint: npm
+    args: ["ci"]
+
+  - id: verify
+    name: node:20-slim
+    entrypoint: npm
+    args: ["run", "verify"]
+
+  - id: build-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/storeops-api:${SHORT_SHA}"
+      - .
+
+  - id: push-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/storeops-api:${SHORT_SHA}"
+
+  - id: deploy-cloud-run
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - storeops-api
+      - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/storeops-api:${SHORT_SHA}
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+      - --service-account=${_RUNTIME_SA}
+
+substitutions:
+  _REGION: us-central1
+  _REPOSITORY: storeops
+  _RUNTIME_SA: storeops-run-sa@PROJECT_ID.iam.gserviceaccount.com
+
+images:
+  - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/storeops-api:${SHORT_SHA}"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
