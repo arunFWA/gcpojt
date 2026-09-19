@@ -55,16 +55,4 @@ including a note on the network-sandboxed environment this repository
 was authored in and what you should verify yourself before treating this
 as a fully proven, live deployment.
 
-## Version control
 
-This repository is intended to be pushed to
-`https://github.com/arunFWA/gcpojt`. It was authored in a sandboxed
-environment with no outbound network access, so the initial push must be
-performed from a machine with GitHub access:
-
-```bash
-cd gcpojt
-git remote add origin https://github.com/arunFWA/gcpojt.git
-git branch -M main
-git push -u origin main
-```
